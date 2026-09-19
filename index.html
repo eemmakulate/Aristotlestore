@@ -819,8 +819,8 @@ async function initCloud() {
   cloudStarted = true;
   try {
     const [{ initializeApp, getApps, getApp }, fs] = await Promise.all([
-      import('https://cdn.jsdelivr.net/npm/firebase@10.12.2/app/+esm'),
-      import('https://cdn.jsdelivr.net/npm/firebase@10.12.2/firestore/+esm')
+      import('https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js'),
+      import('https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js')
     ]);
     const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
     const db = fs.getFirestore(app);
@@ -856,8 +856,8 @@ async function getAuthApi() {
   if (authApi) return authApi;
   try {
     const [{ initializeApp, getApps, getApp }, authMod] = await Promise.all([
-      import('https://cdn.jsdelivr.net/npm/firebase@10.12.2/app/+esm'),
-      import('https://cdn.jsdelivr.net/npm/firebase@10.12.2/auth/+esm')
+      import('https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js'),
+      import('https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js')
     ]);
     const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
     authApi = {
