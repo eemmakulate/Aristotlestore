@@ -723,13 +723,13 @@ const FIREBASE_CONFIG = {
   appId: "1:602606645902:web:2255420a57c0c7855cfdf"
 };
 /* Example:
-const firebaseConfig = {
-  apiKey: "AIzaSyDlo8RqjLbV7ePMkVkbB82pKFejkI0SIdg",
-  authDomain: "aristotlestore-9c965.firebaseapp.com",
-  projectId: "aristotlestore-9c965",
-  storageBucket: "aristotlestore-9c965.firebasestorage.app",
-  messagingSenderId: "415141917303",
-  appId: "1:415141917303:web:29a67d2afdeaa2e8028c72"
+const FIREBASE_CONFIG = {
+  apiKey: "AIza...",
+  authDomain: "aristotle-store.firebaseapp.com",
+  projectId: "aristotle-store",
+  storageBucket: "aristotle-store.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "1:000000000000:web:abc123"
 };
 */
 const COLLECTION = 'invoices';
@@ -812,14 +812,17 @@ function writeLocal() {
   } catch (e) { console.warn('Local save failed', e); }
 }
 
+let cloudStarted = false;
 async function initCloud() {
   if (!FIREBASE_CONFIG) { setSync(false, 'Local mode — add Firebase config'); return; }
+  if (cloudStarted) return; // avoid duplicate listeners if this fires more than once
+  cloudStarted = true;
   try {
-    const [{ initializeApp }, fs] = await Promise.all([
+    const [{ initializeApp, getApps, getApp }, fs] = await Promise.all([
       import('https://cdn.jsdelivr.net/npm/firebase@10.12.2/app/+esm'),
       import('https://cdn.jsdelivr.net/npm/firebase@10.12.2/firestore/+esm')
     ]);
-    const app = initializeApp(FIREBASE_CONFIG);
+    const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
     const db = fs.getFirestore(app);
     cloud = { db, ...fs };
     // live invoice feed
@@ -827,13 +830,14 @@ async function initCloud() {
       invoices = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       render();
       setSync(true, 'Cloud Synced');
-    }, err => { console.error(err); setSync(false, 'Cloud offline — saving locally'); });
+    }, err => { console.error(err); cloudStarted = false; setSync(false, 'Cloud offline — saving locally'); });
     // settings doc
     fs.onSnapshot(fs.doc(db, 'settings', SETTINGS_DOC), d => {
       if (d.exists()) { settings = { ...DEFAULTS, ...d.data() }; applyBranding(); }
     });
   } catch (e) {
     console.error('Firebase init failed', e);
+    cloudStarted = false;
     setSync(false, 'Cloud offline — saving locally');
   }
 }
@@ -994,12 +998,19 @@ async function initAuthGate() {
     return;
   }
   showApp(false);
+  setSync(false, 'Sign in to sync');
   const api = await getAuthApi();
   if (!api) { $('lgErr').textContent = "Couldn't reach Firebase. Check your connection and reload."; return; }
   api.onAuthStateChanged(api.auth, user => {
     currentUser = user;
     updateWhoBadge();
     showApp(!!user);
+    if (user) {
+      initCloud(); // Firestore rules require sign-in, so cloud sync only starts now
+    } else {
+      cloudStarted = false;
+      setSync(false, 'Sign in to sync');
+    }
   });
 }
 
@@ -1568,7 +1579,7 @@ function seed() {
   if (!FIREBASE_ON) seed();
   applyBranding();
   render();
-  initCloud();
+  if (!FIREBASE_ON) initCloud(); // sets the "Local mode" badge; Firebase mode starts sync after sign-in instead
   initAuthGate();
 })();
 
